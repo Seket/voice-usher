@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Mic, Zap, Brain, MessageSquare } from 'lucide-react';
+import { Mic, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HeroSectionProps {
@@ -10,24 +9,6 @@ interface HeroSectionProps {
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({ onStartVoice, className }) => {
-  const features = [
-    {
-      icon: Brain,
-      title: 'IA Avanzada',
-      description: 'Tecnología de vanguardia para conversaciones naturales'
-    },
-    {
-      icon: Zap,
-      title: 'Respuesta Instantánea',
-      description: 'Procesamiento en tiempo real para una experiencia fluida'
-    },
-    {
-      icon: MessageSquare,
-      title: 'Comprensión Natural',
-      description: 'Entiende el contexto y las emociones de tu conversación'
-    }
-  ];
-
   return (
     <section className={cn("relative min-h-screen flex items-center justify-center", className)}>
       {/* Background Effects */}
@@ -46,19 +27,19 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onStartVoice, className }) =>
           {/* Hero Badge */}
           <div className="inline-flex items-center space-x-2 bg-primary/20 border border-primary/30 rounded-full px-6 py-2 text-sm font-medium">
             <Zap className="w-4 h-4 text-primary" />
-            <span>Asistente de Voz con IA</span>
+            <span>AI Voice Assistant</span>
           </div>
 
           {/* Main Heading */}
           <div className="space-y-4">
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold leading-tight">
-              <span className="gradient-text">Habla</span>
+              <span className="gradient-text">Talk</span>
               <br />
-              <span className="text-foreground">con el Futuro</span>
+              <span className="text-foreground">to the Future</span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Experimenta conversaciones naturales con nuestro asistente de voz impulsado por IA. 
-              Simplemente habla y obtén respuestas inteligentes al instante.
+              Experience natural conversations with our AI-powered voice assistant. 
+              Simply speak and get intelligent responses instantly.
             </p>
           </div>
 
@@ -81,37 +62,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onStartVoice, className }) =>
                   <Mic className="w-8 h-8 transition-transform group-hover:scale-110" />
                   <div className="absolute inset-0 bg-primary-glow/30 rounded-full blur-sm group-hover:blur-md transition-all" />
                 </div>
-                <span>Comenzar Conversación</span>
+                <span>Start Conversation</span>
               </div>
               <div className="absolute inset-0 bg-gradient-radial from-primary-glow/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </Button>
-          </div>
-
-          {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-16">
-            {features.map((feature, index) => (
-              <Card 
-                key={index}
-                className={cn(
-                  "relative p-6 bg-card/50 backdrop-blur-sm border-border/50",
-                  "hover:bg-card/70 transition-all duration-300",
-                  "hover:shadow-card hover:scale-105"
-                )}
-              >
-                <div className="space-y-4">
-                  <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
-                    <feature.icon className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-lg">{feature.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {feature.description}
-                  </p>
-                </div>
-                
-                {/* Card glow effect */}
-                <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg" />
-              </Card>
-            ))}
           </div>
         </div>
 

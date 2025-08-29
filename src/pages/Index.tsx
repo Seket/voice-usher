@@ -31,21 +31,21 @@ const Index = () => {
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Volver</span>
+              <span>Back</span>
             </Button>
-            <h1 className="text-2xl font-bold gradient-text">Asistente de Voz</h1>
+            <h1 className="text-2xl font-bold gradient-text">Voice Assistant</h1>
           </div>
 
           {VAPI_API_KEY === "your_public_api_key_here" ? (
             <Card className="p-8 text-center space-y-4">
-              <h2 className="text-xl font-semibold">Configuración Requerida</h2>
+              <h2 className="text-xl font-semibold">Configuration Required</h2>
               <p className="text-muted-foreground">
-                Para usar el asistente de voz, necesitas configurar tus credenciales de Vapi:
+                To use the voice assistant, you need to configure your Vapi credentials:
               </p>
               <div className="bg-muted p-4 rounded-lg text-left text-sm font-mono">
-                <p>1. Obtén tu API key de <a href="https://vapi.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">vapi.ai</a></p>
-                <p>2. Crea un asistente y obtén su ID</p>
-                <p>3. Actualiza VAPI_API_KEY y ASSISTANT_ID en el código</p>
+                <p>1. Get your API key from <a href="https://vapi.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">vapi.ai</a></p>
+                <p>2. Create an assistant and get its ID</p>
+                <p>3. Update VAPI_API_KEY and ASSISTANT_ID in the code</p>
               </div>
             </Card>
           ) : (
