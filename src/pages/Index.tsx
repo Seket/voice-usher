@@ -8,9 +8,9 @@ import { ArrowLeft } from 'lucide-react';
 const Index = () => {
   const [showVoiceAgent, setShowVoiceAgent] = useState(false);
   
-  // Replace with your actual Vapi credentials
-  const VAPI_API_KEY = "your_public_api_key_here";
-  const ASSISTANT_ID = "your_assistant_id_here";
+  // Your Vapi credentials
+  const VAPI_API_KEY = "5fed0108-b1ca-4597-a237-bdf0215e170c";
+  const ASSISTANT_ID = "5e24c91f-3830-4e26-812f-51429bf5e662";
 
   const handleStartVoice = () => {
     setShowVoiceAgent(true);
@@ -36,24 +36,10 @@ const Index = () => {
             <h1 className="text-2xl font-bold gradient-text">Voice Assistant</h1>
           </div>
 
-          {VAPI_API_KEY === "your_public_api_key_here" ? (
-            <Card className="p-8 text-center space-y-4">
-              <h2 className="text-xl font-semibold">Configuration Required</h2>
-              <p className="text-muted-foreground">
-                To use the voice assistant, you need to configure your Vapi credentials:
-              </p>
-              <div className="bg-muted p-4 rounded-lg text-left text-sm font-mono">
-                <p>1. Get your API key from <a href="https://vapi.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">vapi.ai</a></p>
-                <p>2. Create an assistant and get its ID</p>
-                <p>3. Update VAPI_API_KEY and ASSISTANT_ID in the code</p>
-              </div>
-            </Card>
-          ) : (
-            <VoiceAgent 
-              apiKey={VAPI_API_KEY}
-              assistantId={ASSISTANT_ID}
-            />
-          )}
+          <VoiceAgent 
+            apiKey={VAPI_API_KEY}
+            assistantId={ASSISTANT_ID}
+          />
         </div>
       </div>
     );
