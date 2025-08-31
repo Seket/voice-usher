@@ -16,19 +16,19 @@
     --popover: 240 8% 6%;
     --popover-foreground: 210 20% 98%;
 
-    /* Voice Agent Primary - Vibrant teal */
-    --primary: 180 84% 48%;
+    /* Voice Agent Primary - Vibrant blue/teal gradient */
+    --primary: 200 100% 60%;
     --primary-foreground: 240 8% 4%;
-    --primary-glow: 180 100% 65%;
+    --primary-glow: 190 100% 70%;
 
-    /* Secondary - Subtle purple accent */
-    --secondary: 280 40% 25%;
+    /* Secondary - Purple accent */
+    --secondary: 270 80% 60%;
     --secondary-foreground: 210 20% 98%;
 
     --muted: 240 6% 12%;
     --muted-foreground: 210 10% 65%;
 
-    --accent: 180 84% 48%;
+    --accent: 200 100% 60%;
     --accent-foreground: 240 8% 4%;
 
     --destructive: 0 84% 60%;
@@ -36,27 +36,31 @@
 
     --border: 240 6% 15%;
     --input: 240 6% 15%;
-    --ring: 180 84% 48%;
+    --ring: 200 100% 60%;
 
     /* Voice-specific design tokens */
     --voice-active: 120 100% 50%;
     --voice-inactive: 0 0% 50%;
     --voice-speaking: 14 100% 57%;
-    --voice-listening: 180 84% 48%;
+    --voice-listening: 200 100% 60%;
     
-    /* Gradients for AI aesthetics */
-    --gradient-voice: linear-gradient(135deg, hsl(180 84% 48%), hsl(280 70% 60%));
+    /* Modern AI gradients inspired by reference */
+    --gradient-voice: linear-gradient(135deg, hsl(200 100% 60%), hsl(270 80% 60%));
+    --gradient-orb: conic-gradient(from 0deg, hsl(200 100% 70%), hsl(270 80% 60%), hsl(190 100% 65%), hsl(200 100% 70%));
     --gradient-hero: linear-gradient(135deg, hsl(240 8% 4%), hsl(240 6% 8%));
-    --gradient-glow: radial-gradient(circle at center, hsl(180 84% 48% / 0.2), transparent 70%);
+    --gradient-glow: radial-gradient(circle at center, hsl(200 100% 60% / 0.2), transparent 70%);
+    --gradient-pulse: radial-gradient(circle at center, hsl(200 100% 60% / 0.4), hsl(270 80% 60% / 0.2), transparent 70%);
     
-    /* Shadows with voice theme */
-    --shadow-voice: 0 0 30px hsl(180 84% 48% / 0.3);
-    --shadow-glow: 0 0 60px hsl(180 100% 65% / 0.2);
+    /* Enhanced shadows with glow effects */
+    --shadow-voice: 0 0 40px hsl(200 100% 60% / 0.4);
+    --shadow-glow: 0 0 80px hsl(200 100% 60% / 0.3);
     --shadow-card: 0 10px 30px hsl(240 8% 4% / 0.5);
+    --shadow-orb: 0 0 100px hsl(200 100% 60% / 0.5);
     
     /* Animation durations */
     --transition-voice: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-glow: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
     --radius: 0.5rem;
 
@@ -154,6 +158,25 @@
     background-clip: text;
   }
 
+  /* Modern gradient orb for voice interface */
+  .gradient-orb {
+    background: var(--gradient-orb);
+    animation: orb-rotate 8s linear infinite;
+  }
+
+  .gradient-orb-speaking {
+    background: var(--gradient-orb);
+    animation: orb-rotate 2s linear infinite, orb-pulse 1.5s ease-in-out infinite;
+    box-shadow: var(--shadow-orb);
+  }
+
+  .gradient-orb-listening {
+    background: var(--gradient-orb);
+    animation: orb-rotate 6s linear infinite, orb-breathe 3s ease-in-out infinite;
+    box-shadow: var(--shadow-voice);
+  }
+
+  /* Enhanced animations */
   @keyframes voice-pulse {
     0%, 100% {
       opacity: 0.8;
@@ -162,6 +185,52 @@
     50% {
       opacity: 1;
       transform: scale(1.05);
+    }
+  }
+
+  @keyframes orb-rotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes orb-pulse {
+    0%, 100% {
+      transform: scale(1) rotate(0deg);
+      box-shadow: var(--shadow-voice);
+    }
+    50% {
+      transform: scale(1.1) rotate(180deg);
+      box-shadow: var(--shadow-orb);
+    }
+  }
+
+  @keyframes orb-breathe {
+    0%, 100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 0.9;
+    }
+    50% {
+      transform: scale(1.05) rotate(180deg);
+      opacity: 1;
+    }
+  }
+
+  @keyframes call-end-fade {
+    0% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(0.8);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.6);
     }
   }
 
@@ -188,5 +257,9 @@
 
   .voice-wave:nth-child(4) {
     animation-delay: 0.3s;
+  }
+
+  .call-end-animation {
+    animation: call-end-fade 2s ease-out forwards;
   }
 }

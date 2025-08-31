@@ -77,13 +77,16 @@ export default {
 			},
 			backgroundImage: {
 				'gradient-voice': 'var(--gradient-voice)',
+				'gradient-orb': 'var(--gradient-orb)',
 				'gradient-hero': 'var(--gradient-hero)',
-				'gradient-glow': 'var(--gradient-glow)'
+				'gradient-glow': 'var(--gradient-glow)',
+				'gradient-pulse': 'var(--gradient-pulse)'
 			},
 			boxShadow: {
 				'voice': 'var(--shadow-voice)',
 				'glow': 'var(--shadow-glow)',
-				'card': 'var(--shadow-card)'
+				'card': 'var(--shadow-card)',
+				'orb': 'var(--shadow-orb)'
 			},
 			transitionTimingFunction: {
 				'voice': 'cubic-bezier(0.4, 0, 0.2, 1)',
