@@ -1,73 +1,159 @@
-# Welcome to your Lovable project
 
-## Project info
+## Project Overview
 
-**URL**: https://lovable.dev/projects/3b2be8c9-ccf7-4195-8d49-0dc389fcc4ff
+This project is a Vite + React + TypeScript app with an Express backend. It demonstrates:
 
-## How can I edit this code?
+- A web voice assistant using `@vapi-ai/web` (client SDK)
+- Backend integrations using `@vapi-ai/server-sdk`
+- A simple keypad UI to place calls via Vapi using your phone number and assistant
+- A dev setup that runs Client (Vite) and Server (Express) concurrently
 
-There are several ways of editing your application.
+## Prerequisites
 
-**Use Lovable**
+- Node.js 18+ and npm
+- Vapi account with:
+  - Public Web API Key
+  - Server (private) API Key
+  - Assistant ID
+  - Phone Number ID (for outbound calls/campaigns)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3b2be8c9-ccf7-4195-8d49-0dc389fcc4ff) and start prompting.
+## Quick Start
 
-Changes made via Lovable will be committed automatically to this repo.
+1) Install dependencies
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+```
 npm i
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+2) Create a `.env` file in the project root (same folder as `package.json`). See the full guide below.
+
+3) Start development (client + server):
+
+```
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+- Frontend: http://localhost:8080
+- Backend: http://localhost:3001
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Environment Variables (very important)
 
-**Use GitHub Codespaces**
+You will use two categories of environment variables:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Backend (private): NEVER expose in client or commit to public repos.
+- Frontend (public): Must be prefixed with `VITE_` because Vite injects them into the browser bundle.
 
-## What technologies are used for this project?
+Create a `.env` file at the project root with the following content:
 
-This project is built with:
+```
+# Backend (private - used only by Express server)
+VAPI_API_KEY=your_private_server_token
+PORT=3001
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Frontend (public - safe to expose in browser)
+VITE_VAPI_PUBLIC_API_KEY=your_public_web_api_key
+VITE_ASSISTANT_ID=your_assistant_id
+VITE_DEFAULT_PHONE_NUMBER_ID=your_phone_number_id
 
-## How can I deploy this project?
+```
 
-Simply open [Lovable](https://lovable.dev/projects/3b2be8c9-ccf7-4195-8d49-0dc389fcc4ff) and click on Share -> Publish.
+Where are these used?
 
-## Can I connect a custom domain to my Lovable project?
+- `VAPI_API_KEY` (private)
+  - Read by `server/index.ts` via `dotenv` and passed to `new VapiClient({ token: process.env.VAPI_API_KEY })`.
+  - Used to create outbound calls/campaigns securely from the server.
 
-Yes, you can!
+- `VITE_VAPI_PUBLIC_API_KEY` (public)
+  - Read in `src/pages/Index.tsx` and passed to the client SDK (`@vapi-ai/web`) via the `VoiceAgent` component.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- `VITE_ASSISTANT_ID` (public)
+  - Read in `src/pages/Index.tsx` and passed to both `VoiceAgent` and the outbound call form.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- `VITE_DEFAULT_PHONE_NUMBER_ID` (public)
+  - Prefills the keypad form so students can quickly test calling from their assigned number.
+
+- `VITE_TRANSCRIPT_WEBHOOK_URL` (public, optional)
+  - If set, when the call ends, the app POSTs the final transcript to this webhook from the browser.
+
+Important notes:
+
+- After editing `.env`, restart dev with `npm run dev` (Vite does not reload env automatically).
+- Do not put the server token into any `VITE_` variable.
+- Add `.env` to `.gitignore` to avoid committing secrets.
+
+## How the app is structured
+
+Key files:
+
+- `server/index.ts` (Express):
+  - Health endpoint: `GET /api/health`
+  - Outbound call: `POST /api/vapi/outbound-call`
+  - Outbound campaign: `POST /api/vapi/outbound-campaign`
+  - Validates and normalizes phone numbers to E.164-like format.
+  - Uses `@vapi-ai/server-sdk` with your private `VAPI_API_KEY`.
+
+- `vite.config.ts` (Vite dev server):
+  - Proxies `/api` from `http://localhost:8080` to `http://localhost:3001`.
+
+- `src/pages/Index.tsx` (React):
+  - Reads `VITE_*` variables.
+  - Renders the Voice Assistant and the Outbound Call keypad form.
+
+- `src/components/voice/VoiceAgent.tsx`:
+  - Uses `@vapi-ai/web` to start/stop calls.
+  - Listens to call events and collects transcript.
+  - De-duplicates transcripts to avoid repeating the same line twice.
+  - Optionally POSTs transcripts at call end to `VITE_TRANSCRIPT_WEBHOOK_URL`.
+
+- `src/components/voice/OutboundCallForm.tsx`:
+  - A phone-like keypad UI where users only enter the destination number.
+  - Calls `POST /api/vapi/outbound-campaign` with the assistant and phone number IDs.
+
+## Dev scripts
+
+- `npm run dev` — start client (8080) and server (3001) concurrently.
+- `npm run dev:client` — start only Vite client.
+- `npm run dev:server` — start only the Express server in watch mode.
+- `npm run build` — build client assets.
+- `npm run build:server` — type-check/emit server to `dist-server`.
+- `npm run start:server` — run compiled server.
+
+## API endpoints
+
+- `GET /api/health` — quick status.
+- `POST /api/vapi/outbound-call`
+  - Body: `{ phoneNumberId, assistantId, customer: { number, name? } }`
+  - Returns the call (or batch) result.
+
+- `POST /api/vapi/outbound-campaign`
+  - Body: `{ name, phoneNumberId, assistantId, customer: { number, name? } }`
+  - Creates a campaign with the provided customer.
+
+## How the proxy works (8080 -> 3001)
+
+The frontend calls relative paths like `/api/vapi/outbound-campaign`. In dev, Vite proxies these requests to the Express server. This avoids CORS issues and keeps your code cleaner.
+
+## Security tips
+
+- Keep `VAPI_API_KEY` on the server only.
+- Do not log secrets.
+- Prefer server-side integrations for outbound calls; do not expose privileged operations in the browser.
+
+## Troubleshooting
+
+- Missing `VAPI_API_KEY`:
+  - The server will log an error and outbound requests will fail. Set it in `.env` and restart.
+
+- Proxy not working:
+  - Make sure `npm run dev` is used (starts both servers), and do not hardcode `http://localhost:3001` in the client; use `/api/...`.
+
+- Transcript not received at webhook:
+  - Ensure `VITE_TRANSCRIPT_WEBHOOK_URL` is set correctly.
+  - Check browser console/network tab for POST errors.
+
+## What students will learn
+
+- How to separate private (server) and public (client) environment variables
+- How to send calls via Vapi from a secure backend
+- How to build a small dialer UI and integrate it with a backend
+- How to handle real-time voice events and transcripts

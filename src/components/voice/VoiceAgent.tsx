@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import Vapi from '@vapi-ai/web';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Mic, MicOff, Phone, PhoneOff, User, Bot } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import Vapi from "@vapi-ai/web";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Mic, PhoneOff, User, Bot } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface VoiceAgentProps {
   apiKey: string;
@@ -17,10 +17,10 @@ interface TranscriptMessage {
   timestamp: number;
 }
 
-const VoiceAgent: React.FC<VoiceAgentProps> = ({ 
-  apiKey, 
-  assistantId, 
-  config = {} 
+const VoiceAgent: React.FC<VoiceAgentProps> = ({
+  apiKey,
+  assistantId,
+  config = {},
 }) => {
   const [vapi, setVapi] = useState<Vapi | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -29,6 +29,8 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [callEnded, setCallEnded] = useState(false);
+  const seenTranscriptsRef = useRef<Set<string>>(new Set());
+  const transcriptRef = useRef<TranscriptMessage[]>([]);
 
   const initializeVapi = useCallback(() => {
     try {
@@ -36,62 +38,70 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
       setVapi(vapiInstance);
 
       // Event listeners
-      vapiInstance.on('call-start', () => {
-        console.log('Call started');
+      vapiInstance.on("call-start", () => {
         setIsConnected(true);
         setError(null);
         setCallEnded(false);
+        seenTranscriptsRef.current.clear();
       });
 
-      vapiInstance.on('call-end', () => {
-        console.log('Call ended');
+      vapiInstance.on("call-end", () => {
         setIsConnected(false);
         setIsSpeaking(false);
         setIsListening(false);
         setCallEnded(true);
-        
-        // Reset call ended state after animation
-        setTimeout(() => setCallEnded(false), 3000);
+        seenTranscriptsRef.current.clear();
+
+        // Reset call e   vapiInstance.stop();nded state after animation
+        setTimeout(() => {
+          setCallEnded(false);
+          vapiInstance.stop();
+        }, 3000);
       });
 
-      vapiInstance.on('speech-start', () => {
-        console.log('Assistant started speaking');
+      vapiInstance.on("speech-start", () => {
         setIsSpeaking(true);
         setIsListening(false);
       });
 
-      vapiInstance.on('speech-end', () => {
-        console.log('Assistant stopped speaking');
+      vapiInstance.on("speech-end", () => {
         setIsSpeaking(false);
         setIsListening(true);
       });
 
-      vapiInstance.on('message', (message: any) => {
-        if (message.type === 'transcript') {
-          setTranscript(prev => [...prev, {
-            role: message.role,
-            text: message.transcript,
-            timestamp: Date.now()
-          }]);
+      type VapiMessage = { type: string; role?: string; transcript?: string };
+      vapiInstance.on("message", (message: VapiMessage) => {
+        if (message.type === "transcript") {
+          const role = String(message.role ?? "");
+          const text = String(message.transcript ?? "").trim();
+          if (!text) return;
+
+          const key = `${role}|${text}`;
+          if (seenTranscriptsRef.current.has(key)) return;
+          seenTranscriptsRef.current.add(key);
+
+          setTranscript((prev) => [
+            ...prev,
+            { role, text, timestamp: Date.now() },
+          ]);
         }
       });
 
-      vapiInstance.on('error', (error: any) => {
-        console.error('Vapi error:', error);
-        setError('Error connecting to voice assistant. Please try again.');
+      vapiInstance.on("error", () => {
+        setError("Error connecting to voice assistant. Please try again.");
       });
 
       return vapiInstance;
     } catch (err) {
-      console.error('Failed to initialize Vapi:', err);
-      setError('Failed to initialize voice assistant.');
+      console.error("Failed to initialize Vapi:", err);
+      setError("Failed to initialize voice assistant.");
       return null;
     }
   }, [apiKey]);
 
   useEffect(() => {
     const vapiInstance = initializeVapi();
-    
+
     return () => {
       if (vapiInstance) {
         vapiInstance.stop();
@@ -99,27 +109,32 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
     };
   }, [initializeVapi]);
 
+  // Keep a live ref of transcript for webhook payload
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
   const startCall = async () => {
     if (!vapi) return;
-    
+
     try {
       setError(null);
       setTranscript([]);
       await vapi.start(assistantId);
       setIsListening(true);
     } catch (err) {
-      console.error('Failed to start call:', err);
-      setError('Failed to start voice call. Please check your permissions.');
+      console.error("Failed to start call:", err);
+      setError("Failed to start voice call. Please check your permissions.");
     }
   };
 
   const endCall = async () => {
     if (!vapi) return;
-    
+
     try {
       await vapi.stop();
     } catch (err) {
-      console.error('Failed to end call:', err);
+      console.error("Failed to end call:", err);
     }
   };
 
@@ -133,7 +148,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
             isActive ? "h-8 voice-wave" : "h-2"
           )}
           style={{
-            animationDelay: `${i * 0.1}s`
+            animationDelay: `${i * 0.1}s`,
           }}
         />
       ))}
@@ -141,20 +156,22 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
   );
 
   const AgentAvatar = () => (
-    <div className={cn(
-      "relative w-24 h-24 mx-auto mb-6",
-      "bg-gradient-voice rounded-full flex items-center justify-center",
-      "transition-all duration-500",
-      isSpeaking && "voice-pulse shadow-glow scale-110",
-      isListening && "animate-pulse"
-    )}>
+    <div
+      className={cn(
+        "relative w-24 h-24 mx-auto mb-6",
+        "bg-gradient-voice rounded-full flex items-center justify-center",
+        "transition-all duration-500",
+        isSpeaking && "voice-pulse shadow-glow scale-110",
+        isListening && "animate-pulse"
+      )}
+    >
       <Bot className="w-12 h-12 text-primary-foreground" />
-      
+
       {/* Speaking indicator */}
       {isSpeaking && (
         <div className="absolute inset-0 rounded-full border-4 border-voice-speaking animate-ping" />
       )}
-      
+
       {/* Listening indicator */}
       {isListening && (
         <div className="absolute inset-0 rounded-full border-2 border-voice-listening animate-pulse" />
@@ -163,18 +180,22 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
   );
 
   const CallEndedAnimation = () => (
-    <div className={cn(
-      "fixed inset-0 bg-background/90 backdrop-blur-sm z-50",
-      "flex items-center justify-center transition-all duration-1000",
-      callEnded ? "opacity-100" : "opacity-0 pointer-events-none"
-    )}>
+    <div
+      className={cn(
+        "fixed inset-0 bg-background/90 backdrop-blur-sm z-50",
+        "flex items-center justify-center transition-all duration-1000",
+        callEnded ? "opacity-100" : "opacity-0 pointer-events-none"
+      )}
+    >
       <div className="text-center space-y-6 animate-fade-in">
         <div className="w-32 h-32 mx-auto bg-muted rounded-full flex items-center justify-center">
           <PhoneOff className="w-16 h-16 text-muted-foreground" />
         </div>
         <div>
           <h2 className="text-2xl font-bold mb-2">Call Ended</h2>
-          <p className="text-muted-foreground">Thank you for using our voice assistant</p>
+          <p className="text-muted-foreground">
+            Thank you for using our voice assistant
+          </p>
         </div>
       </div>
     </div>
@@ -185,11 +206,12 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
       <>
         <div className="flex flex-col items-center space-y-6">
           <AgentAvatar />
-          
+
           <div className="text-center space-y-4">
             <h2 className="text-2xl font-bold">AI Voice Assistant</h2>
             <p className="text-muted-foreground max-w-md">
-              Ready to have a natural conversation. Click the button below to start talking.
+              Ready to have a natural conversation. Click the button below to
+              start talking.
             </p>
           </div>
 
@@ -211,7 +233,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
             </div>
             <div className="absolute inset-0 bg-gradient-glow opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </Button>
-          
+
           {error && (
             <Card className="p-4 border-destructive bg-destructive/10">
               <p className="text-destructive text-sm">{error}</p>
@@ -232,8 +254,11 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
         {/* Status Header */}
         <div className="text-center space-y-2">
           <h3 className="font-semibold text-lg">
-            {isSpeaking ? 'Assistant Speaking...' : 
-             isListening ? 'Listening...' : 'Connected'}
+            {isSpeaking
+              ? "Assistant Speaking..."
+              : isListening
+              ? "Listening..."
+              : "Connected"}
           </h3>
           {(isSpeaking || isListening) && (
             <div className="flex justify-center">
@@ -257,7 +282,9 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
 
         {/* Transcript */}
         <div className="space-y-4">
-          <h4 className="font-semibold text-sm text-muted-foreground">Conversation:</h4>
+          <h4 className="font-semibold text-sm text-muted-foreground">
+            Conversation:
+          </h4>
           <div className="max-h-64 overflow-y-auto space-y-3 p-4 bg-muted/50 rounded-lg">
             {transcript.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-8">
@@ -269,25 +296,31 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
                   key={i}
                   className={cn(
                     "flex items-start space-x-2",
-                    msg.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                    msg.role === "user"
+                      ? "flex-row-reverse space-x-reverse"
+                      : ""
                   )}
                 >
-                  <div className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
-                    msg.role === 'user' ? "bg-primary" : "bg-secondary"
-                  )}>
-                    {msg.role === 'user' ? (
+                  <div
+                    className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
+                      msg.role === "user" ? "bg-primary" : "bg-secondary"
+                    )}
+                  >
+                    {msg.role === "user" ? (
                       <User className="w-3 h-3 text-primary-foreground" />
                     ) : (
                       <Bot className="w-3 h-3 text-secondary-foreground" />
                     )}
                   </div>
-                  <div className={cn(
-                    "max-w-[80%] px-3 py-2 rounded-lg text-sm",
-                    msg.role === 'user' 
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-secondary text-secondary-foreground"
-                  )}>
+                  <div
+                    className={cn(
+                      "max-w-[80%] px-3 py-2 rounded-lg text-sm",
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground"
+                    )}
+                  >
                     <p className="whitespace-pre-wrap">{msg.text}</p>
                     <span className="text-xs opacity-70 block mt-1">
                       {new Date(msg.timestamp).toLocaleTimeString()}
@@ -301,14 +334,16 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
 
         {/* Status Footer */}
         <div className="flex items-center justify-center space-x-2 text-xs text-muted-foreground">
-          <div className={cn(
-            "w-2 h-2 rounded-full",
-            isConnected ? "bg-voice-active" : "bg-voice-inactive"
-          )} />
-          <span>Status: {isConnected ? 'Connected' : 'Disconnected'}</span>
+          <div
+            className={cn(
+              "w-2 h-2 rounded-full",
+              isConnected ? "bg-voice-active" : "bg-voice-inactive"
+            )}
+          />
+          <span>Status: {isConnected ? "Connected" : "Disconnected"}</span>
         </div>
       </Card>
-      
+
       <CallEndedAnimation />
     </>
   );

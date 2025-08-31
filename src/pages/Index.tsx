@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import HeroSection from '@/components/hero/HeroSection';
-import VoiceAgent from '@/components/voice/VoiceAgent';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { useState } from "react";
+import HeroSection from "@/components/hero/HeroSection";
+import VoiceAgent from "@/components/voice/VoiceAgent";
+import OutboundCallForm from "@/components/voice/OutboundCallForm";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+
+const DISPLAY_OUTBOUND_CALL_FORM = false;
 
 const Index = () => {
   const [showVoiceAgent, setShowVoiceAgent] = useState(false);
-  
-  // Your Vapi credentials
-  const VAPI_API_KEY = "5fed0108-b1ca-4597-a237-bdf0215e170c";
-  const ASSISTANT_ID = "5e24c91f-3830-4e26-812f-51429bf5e662";
+  const VAPI_PUBLIC_API_KEY = import.meta.env.VITE_VAPI_PUBLIC_API_KEY ?? "";
+  const ASSISTANT_ID = import.meta.env.VITE_ASSISTANT_ID ?? "";
+  const DEFAULT_PHONE_NUMBER_ID =
+    import.meta.env.VITE_DEFAULT_PHONE_NUMBER_ID ?? "";
 
   const handleStartVoice = () => {
     setShowVoiceAgent(true);
@@ -33,13 +35,12 @@ const Index = () => {
               <ArrowLeft className="w-4 h-4" />
               <span>Back</span>
             </Button>
-            <h1 className="text-2xl font-bold gradient-text">Voice Assistant</h1>
+            <h1 className="text-2xl font-bold gradient-text">
+              Voice Assistant
+            </h1>
           </div>
 
-          <VoiceAgent 
-            apiKey={VAPI_API_KEY}
-            assistantId={ASSISTANT_ID}
-          />
+          <VoiceAgent apiKey={VAPI_PUBLIC_API_KEY} assistantId={ASSISTANT_ID} />
         </div>
       </div>
     );
@@ -48,6 +49,17 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <HeroSection onStartVoice={handleStartVoice} />
+      {DISPLAY_OUTBOUND_CALL_FORM && (
+        <div className="container mx-auto px-6 py-10">
+          <div className="max-w-2xl mx-auto bg-card border rounded-xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold">Create Outbound Call</h2>
+            <OutboundCallForm
+              defaultPhoneNumberId={DEFAULT_PHONE_NUMBER_ID}
+              defaultAssistantId={ASSISTANT_ID}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
