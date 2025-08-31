@@ -1,12 +1,12 @@
 
-## Project Overview
+## Learning Goal: Implement Vapi Voice Agents (no React/Node teaching)
 
-This project is a Vite + React + TypeScript app with an Express backend. It demonstrates:
+This repository is a hands-on base for a YouTube lesson focused on Vapi Voice Agents. You will learn how to:
 
-- A web voice assistant using `@vapi-ai/web` (client SDK)
-- Backend integrations using `@vapi-ai/server-sdk`
-- A simple keypad UI to place calls via Vapi using your phone number and assistant
-- A dev setup that runs Client (Vite) and Server (Express) concurrently
+- Start a voice call in the browser using the Vapi Web SDK
+- Trigger outbound phone calls from a secure backend using the Vapi Server SDK
+
+We will not teach React or Node; they are already set up for you so you can concentrate on Vapi.
 
 ## Prerequisites
 
@@ -72,9 +72,6 @@ Where are these used?
 - `VITE_DEFAULT_PHONE_NUMBER_ID` (public)
   - Prefills the keypad form so students can quickly test calling from their assigned number.
 
-- `VITE_TRANSCRIPT_WEBHOOK_URL` (public, optional)
-  - If set, when the call ends, the app POSTs the final transcript to this webhook from the browser.
-
 Important notes:
 
 - After editing `.env`, restart dev with `npm run dev` (Vite does not reload env automatically).
@@ -101,9 +98,8 @@ Key files:
 
 - `src/components/voice/VoiceAgent.tsx`:
   - Uses `@vapi-ai/web` to start/stop calls.
-  - Listens to call events and collects transcript.
+  - Listens to call events and collects transcript in memory.
   - De-duplicates transcripts to avoid repeating the same line twice.
-  - Optionally POSTs transcripts at call end to `VITE_TRANSCRIPT_WEBHOOK_URL`.
 
 - `src/components/voice/OutboundCallForm.tsx`:
   - A phone-like keypad UI where users only enter the destination number.
@@ -147,13 +143,8 @@ The frontend calls relative paths like `/api/vapi/outbound-campaign`. In dev, Vi
 - Proxy not working:
   - Make sure `npm run dev` is used (starts both servers), and do not hardcode `http://localhost:3001` in the client; use `/api/...`.
 
-- Transcript not received at webhook:
-  - Ensure `VITE_TRANSCRIPT_WEBHOOK_URL` is set correctly.
-  - Check browser console/network tab for POST errors.
-
 ## What students will learn
 
-- How to separate private (server) and public (client) environment variables
 - How to send calls via Vapi from a secure backend
 - How to build a small dialer UI and integrate it with a backend
 - How to handle real-time voice events and transcripts
