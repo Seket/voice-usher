@@ -162,20 +162,20 @@
   .gradient-orb {
     background: var(--gradient-orb);
     border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-    animation: orb-rotate 8s linear infinite, orb-morph 6s ease-in-out infinite;
+    animation: orb-rotate 20s linear infinite, orb-morph 12s ease-in-out infinite;
   }
 
   .gradient-orb-speaking {
     background: var(--gradient-orb);
     border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-    animation: orb-rotate 2s linear infinite, orb-pulse 1.5s ease-in-out infinite, orb-morph 4s ease-in-out infinite;
+    animation: orb-rotate 15s linear infinite, orb-pulse 1.5s ease-in-out infinite, orb-morph 8s ease-in-out infinite;
     box-shadow: var(--shadow-orb);
   }
 
   .gradient-orb-listening {
     background: var(--gradient-orb);
     border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-    animation: orb-rotate 6s linear infinite, orb-breathe 3s ease-in-out infinite, orb-morph 8s ease-in-out infinite;
+    animation: orb-rotate 25s linear infinite, orb-breathe 3s ease-in-out infinite, orb-morph 15s ease-in-out infinite;
     box-shadow: var(--shadow-voice);
   }
 
