@@ -156,8 +156,8 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
   );
 
   const AgentAvatar = () => (
-    <div className="relative w-32 h-32 mx-auto mb-8">
-      {/* Main gradient orb */}
+    <div className="relative w-64 h-64 mx-auto mb-8">
+      {/* Main gradient orb - exactly like reference */}
       <div
         className={cn(
           "absolute inset-0 rounded-full transition-all duration-700",
@@ -167,24 +167,57 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
         )}
       />
       
-      {/* Inner content */}
-      <div className="absolute inset-2 bg-background/90 rounded-full flex items-center justify-center backdrop-blur-sm">
-        <div
-          className={cn(
-            "relative w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center transition-all duration-500",
-            isSpeaking && "bg-voice-speaking/30 scale-110",
-            isListening && "bg-voice-listening/30 animate-pulse"
-          )}
-        >
-          <Bot className="w-6 h-6 text-primary" />
+      {/* Button overlay in center - like reference */}
+      {!isConnected && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Button
+            onClick={startCall}
+            className={cn(
+              "bg-white/90 hover:bg-white text-black font-medium",
+              "px-6 py-3 rounded-full shadow-lg backdrop-blur-sm",
+              "transition-all duration-300 hover:scale-105",
+              "border border-white/20"
+            )}
+            disabled={!vapi}
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-6 h-6 flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-black">
+                  <path d="M12 1v22M8 6v12M16 6v12M4 9v6M20 9v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span className="text-lg">Call AI agent</span>
+            </div>
+          </Button>
         </div>
-      </div>
+      )}
+
+      {/* Status indicator when connected */}
+      {isConnected && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="bg-white/10 backdrop-blur-md rounded-full px-6 py-3 border border-white/20">
+            <div className="flex items-center space-x-3 text-white">
+              {isSpeaking ? (
+                <>
+                  <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+                  <span className="font-medium">Speaking...</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse" />
+                  <span className="font-medium">Listening...</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Outer pulse rings for speaking */}
       {isSpeaking && (
         <>
-          <div className="absolute -inset-4 rounded-full border border-primary/30 animate-ping" />
-          <div className="absolute -inset-8 rounded-full border border-primary/20 animate-ping" style={{ animationDelay: '0.5s' }} />
+          <div className="absolute -inset-4 rounded-full border border-white/20 animate-ping" />
+          <div className="absolute -inset-8 rounded-full border border-white/10 animate-ping" style={{ animationDelay: '0.5s' }} />
         </>
       )}
     </div>
@@ -232,37 +265,6 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
         <div className="flex flex-col items-center space-y-8 min-h-[80vh] justify-center">
           <AgentAvatar />
 
-          <div className="text-center space-y-6 max-w-lg mx-auto">
-            <h2 className="text-4xl font-bold gradient-text">AI Voice Assistant</h2>
-            <p className="text-muted-foreground text-lg leading-relaxed">
-              Ready to have a natural conversation. Click the button below to start talking.
-            </p>
-          </div>
-
-          <div className="relative">
-            <Button
-              onClick={startCall}
-              size="lg"
-              className={cn(
-                "relative overflow-hidden group",
-                "bg-background border-2 border-primary/20 hover:border-primary/40",
-                "text-primary font-semibold",
-                "px-10 py-4 rounded-full transition-all duration-500",
-                "hover:shadow-glow hover:scale-105",
-                "backdrop-blur-sm"
-              )}
-              disabled={!vapi}
-            >
-              <div className="flex items-center space-x-3 relative z-10">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Mic className="w-4 h-4" />
-                </div>
-                <span className="text-lg">Call AI Agent</span>
-              </div>
-              <div className="absolute inset-0 bg-gradient-pulse opacity-0 group-hover:opacity-20 transition-all duration-500 rounded-full" />
-            </Button>
-          </div>
-
           {error && (
             <Card className="p-4 border-destructive bg-destructive/10 max-w-md">
               <p className="text-destructive text-sm text-center">{error}</p>
@@ -278,25 +280,16 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
     <>
       <div className="w-full max-w-2xl mx-auto space-y-8">
         {/* Main Voice Interface */}
-        <div className="flex flex-col items-center space-y-8">
+        <div className="flex flex-col items-center space-y-6">
           {/* Agent Avatar */}
           <AgentAvatar />
 
-          {/* Status Header */}
-          <div className="text-center space-y-4">
-            <h3 className="text-2xl font-bold gradient-text">
-              {isSpeaking
-                ? "Assistant Speaking..."
-                : isListening
-                ? "Listening..."
-                : "Connected"}
-            </h3>
-            {(isSpeaking || isListening) && (
-              <div className="flex justify-center">
-                <VoiceWave isActive={isSpeaking} />
-              </div>
-            )}
-          </div>
+          {/* Voice Wave Indicator */}
+          {(isSpeaking || isListening) && (
+            <div className="flex justify-center">
+              <VoiceWave isActive={isSpeaking} />
+            </div>
+          )}
 
           {/* Control Button */}
           <Button
