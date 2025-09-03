@@ -6,6 +6,7 @@ type VapiCallsCreateResponse =
   | { id: string }
   | { results?: Array<{ id: string }>; errors?: unknown[] };
 import { z } from "zod";
+import fetch from "node-fetch";
 
 const app = express();
 
@@ -16,6 +17,7 @@ dotenv.config();
 const PORT = Number(process.env.PORT || 3001);
 const NODE_ENV = process.env.NODE_ENV || "development";
 const VAPI_API_KEY = process.env.VAPI_API_KEY;
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 
 if (!VAPI_API_KEY) {
   console.error("[server] Missing VAPI_API_KEY in environment");
@@ -131,6 +133,60 @@ app.post("/api/vapi/outbound-campaign", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("[server] Failed to create Vapi campaign", error);
     return res.status(502).json({ error: "Failed to create campaign" });
+  }
+});
+
+// Schema for transcript forwarding
+const TranscriptForwardSchema = z.object({
+  callId: z.string().optional(),
+  assistantId: z.string().optional(),
+  startedAt: z.number().optional(),
+  endedAt: z.number().optional(),
+  transcript: z
+    .array(
+      z.object({
+        role: z.string().min(1),
+        text: z.string().min(1),
+        timestamp: z.number(),
+      })
+    )
+    .min(1, "transcript must contain at least one message"),
+  metadata: z.record(z.any()).optional(),
+});
+
+// Forward transcript payload to n8n webhook
+app.post("/api/transcripts", async (req: Request, res: Response) => {
+  try {
+    const parsed = TranscriptForwardSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid payload", details: parsed.error.flatten() });
+    }
+
+    const payload = parsed.data;
+
+    // Basic protection: limit transcript size
+    if (payload.transcript.length > 2000) {
+      return res.status(413).json({ error: "Transcript too large" });
+    }
+
+    const response = await fetch(N8N_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      console.error("[server] n8n webhook error:", response.status, text);
+      return res.status(502).json({ error: "Failed to forward transcript" });
+    }
+
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error("[server] Failed to forward transcript", error);
+    return res.status(502).json({ error: "Failed to forward transcript" });
   }
 });
 

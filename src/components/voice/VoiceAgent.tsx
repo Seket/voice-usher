@@ -17,11 +17,28 @@ interface TranscriptMessage {
   timestamp: number;
 }
 
+const deduplicateTranscript = (
+  messages: TranscriptMessage[]
+): TranscriptMessage[] => {
+  const seenKeys = new Set<string>();
+  const uniqueMessages: TranscriptMessage[] = [];
+  for (const message of messages) {
+    const key = `${message.role}|${message.text}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    uniqueMessages.push(message);
+  }
+  return uniqueMessages;
+};
+
 const VoiceAgent: React.FC<VoiceAgentProps> = ({
   apiKey,
   assistantId,
   config = {},
 }) => {
+  const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL as
+    | string
+    | undefined;
   const [vapi, setVapi] = useState<Vapi | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -37,7 +54,6 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
       const vapiInstance = new Vapi(apiKey);
       setVapi(vapiInstance);
 
-      // Event listeners
       vapiInstance.on("call-start", () => {
         setIsConnected(true);
         setError(null);
@@ -50,9 +66,19 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
         setIsSpeaking(false);
         setIsListening(false);
         setCallEnded(true);
+        const finalTranscript = deduplicateTranscript(transcriptRef.current);
+        if (N8N_WEBHOOK_URL) {
+          const payload = {
+            transcript: finalTranscript,
+            endedAt: Date.now(),
+          };
+          void fetch(N8N_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
         seenTranscriptsRef.current.clear();
-
-        // Reset call e   vapiInstance.stop();nded state after animation
         setTimeout(() => {
           setCallEnded(false);
           vapiInstance.stop();
@@ -93,11 +119,10 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
 
       return vapiInstance;
     } catch (err) {
-      console.error("Failed to initialize Vapi:", err);
       setError("Failed to initialize voice assistant.");
       return null;
     }
-  }, [apiKey]);
+  }, [apiKey, N8N_WEBHOOK_URL]);
 
   useEffect(() => {
     const vapiInstance = initializeVapi();
@@ -123,7 +148,6 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
       await vapi.start(assistantId);
       setIsListening(true);
     } catch (err) {
-      console.error("Failed to start call:", err);
       setError("Failed to start voice call. Please check your permissions.");
     }
   };
@@ -134,7 +158,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
     try {
       await vapi.stop();
     } catch (err) {
-      console.error("Failed to end call:", err);
+      // Intentionally swallow
     }
   };
 
@@ -166,7 +190,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
           isListening && !isSpeaking && "gradient-orb-listening"
         )}
       />
-      
+
       {/* Inner content */}
       <div className="absolute inset-2 bg-background/90 rounded-full flex items-center justify-center backdrop-blur-sm">
         <div
@@ -184,7 +208,10 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
       {isSpeaking && (
         <>
           <div className="absolute -inset-4 rounded-full border border-primary/30 animate-ping" />
-          <div className="absolute -inset-8 rounded-full border border-primary/20 animate-ping" style={{ animationDelay: '0.5s' }} />
+          <div
+            className="absolute -inset-8 rounded-full border border-primary/20 animate-ping"
+            style={{ animationDelay: "0.5s" }}
+          />
         </>
       )}
     </div>
@@ -209,9 +236,12 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
           </div>
           {/* Fade out rings */}
           <div className="absolute -inset-8 rounded-full border border-primary/20 animate-ping opacity-30" />
-          <div className="absolute -inset-16 rounded-full border border-primary/10 animate-ping opacity-20" style={{ animationDelay: '0.5s' }} />
+          <div
+            className="absolute -inset-16 rounded-full border border-primary/10 animate-ping opacity-20"
+            style={{ animationDelay: "0.5s" }}
+          />
         </div>
-        
+
         <div className="space-y-3">
           <h2 className="text-3xl font-bold gradient-text">Call Ended</h2>
           <p className="text-muted-foreground text-lg">
@@ -233,9 +263,12 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
           <AgentAvatar />
 
           <div className="text-center space-y-6 max-w-lg mx-auto">
-            <h2 className="text-4xl font-bold gradient-text">AI Voice Assistant</h2>
+            <h2 className="text-4xl font-bold gradient-text">
+              AI Voice Assistant
+            </h2>
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Ready to have a natural conversation. Click the button below to start talking.
+              Ready to have a natural conversation. Click the button below to
+              start talking.
             </p>
           </div>
 
@@ -325,7 +358,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
                 <span>{isConnected ? "Live" : "Disconnected"}</span>
               </div>
             </div>
-            
+
             <div className="max-h-80 overflow-y-auto space-y-4 p-4 bg-muted/30 rounded-lg border border-border/30">
               {transcript.length === 0 ? (
                 <div className="text-center py-12 space-y-3">
@@ -350,8 +383,8 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
                     <div
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border-2",
-                        msg.role === "user" 
-                          ? "bg-primary/20 border-primary/30" 
+                        msg.role === "user"
+                          ? "bg-primary/20 border-primary/30"
                           : "bg-secondary/20 border-secondary/30"
                       )}
                     >
@@ -369,7 +402,9 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
                           : "bg-secondary/10 border border-secondary/20 text-secondary-foreground"
                       )}
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {msg.text}
+                      </p>
                       <span className="text-xs opacity-70 block mt-2">
                         {new Date(msg.timestamp).toLocaleTimeString()}
                       </span>
