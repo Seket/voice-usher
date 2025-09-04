@@ -1,0 +1,32 @@
+[
+  {
+    "role": "assistant",
+    "text": "like a 30",
+    "timestamp": 1756934493821
+  },
+  {
+    "role": "assistant",
+    "text": "like a 30 second overview",
+    "timestamp": 1756934494824
+  },
+  {
+    "role": "assistant",
+    "text": "like a 30 second overview, or",
+    "timestamp": 1756934495229
+  },
+  {
+    "role": "assistant",
+    "text": "you like a 30 second overview, or should I start with",
+    "timestamp": 1756934496253
+  },
+  {
+    "role": "assistant",
+    "text": "you like a 30 second overview, or should I start with your top question?",
+    "timestamp": 1756934497253
+  },
+  {
+    "role": "user",
+    "text": "I think",
+    "timestamp": 1756934499796
+  }
+]

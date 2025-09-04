@@ -36,9 +36,6 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
   assistantId,
   config = {},
 }) => {
-  const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL as
-    | string
-    | undefined;
   const [vapi, setVapi] = useState<Vapi | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -48,6 +45,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
   const [callEnded, setCallEnded] = useState(false);
   const seenTranscriptsRef = useRef<Set<string>>(new Set());
   const transcriptRef = useRef<TranscriptMessage[]>([]);
+  const callStartedAtRef = useRef<number | null>(null);
 
   const initializeVapi = useCallback(() => {
     try {
@@ -59,6 +57,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
         setError(null);
         setCallEnded(false);
         seenTranscriptsRef.current.clear();
+        callStartedAtRef.current = Date.now();
       });
 
       vapiInstance.on("call-end", () => {
@@ -67,18 +66,21 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
         setIsListening(false);
         setCallEnded(true);
         const finalTranscript = deduplicateTranscript(transcriptRef.current);
-        if (N8N_WEBHOOK_URL) {
-          const payload = {
-            transcript: finalTranscript,
-            endedAt: Date.now(),
-          };
-          void fetch(N8N_WEBHOOK_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        }
+
+        const payload = {
+          transcript: finalTranscript,
+          startedAt: callStartedAtRef.current ?? undefined,
+          endedAt: Date.now(),
+          assistantId,
+        };
+        void fetch("/api/transcripts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
         seenTranscriptsRef.current.clear();
+        callStartedAtRef.current = null;
         setTimeout(() => {
           setCallEnded(false);
           vapiInstance.stop();
@@ -122,7 +124,7 @@ const VoiceAgent: React.FC<VoiceAgentProps> = ({
       setError("Failed to initialize voice assistant.");
       return null;
     }
-  }, [apiKey, N8N_WEBHOOK_URL]);
+  }, [apiKey, assistantId]);
 
   useEffect(() => {
     const vapiInstance = initializeVapi();
