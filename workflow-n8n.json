@@ -1,0 +1,1214 @@
+{
+  "name": "My workflow 18",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "a346aa8d-a14e-4be6-a9eb-85d0f2fa7439",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -256,
+        0
+      ],
+      "id": "e93049f3-3aa2-431a-b479-ef2aca487664",
+      "name": "Webhook",
+      "webhookId": "a346aa8d-a14e-4be6-a9eb-85d0f2fa7439"
+    },
+    {
+      "parameters": {
+        "jsCode": "const transcript = $input.first()?.json?.body?.transcript ?? [];\n\nconst MAX_GAP_MS = 2000;\nconst MIN_SNIPPET_LEN = 8;\n\nconst toISO = ts => new Date(Number(ts)).toISOString();\nconst roleLabel = r => ({ assistant: 'assistant', user: 'user', system: 'system' }[r] ?? String(r));\n\nfunction deStutter(s) {\n  return s\n    .replace(/\\b(\\w+)(?:\\s+\\1\\b)+/gi, '$1')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction isNearDuplicate(prev, cur) {\n  if (!prev || !cur) return false;\n  const a = prev.toLowerCase().trim();\n  const b = cur.toLowerCase().trim();\n  if (a === b) return true;\n  const lenDiff = Math.abs(a.length - b.length);\n  if (a.includes(b) || b.includes(a)) {\n    return lenDiff <= Math.max(10, Math.round(Math.min(a.length, b.length) * 0.2));\n  }\n  return false;\n}\n\nconst turns = (Array.isArray(transcript) ? transcript : [])\n  .filter(t => t && t.role && t.text && t.timestamp != null)\n  .sort((a, b) => Number(a.timestamp) - Number(b.timestamp));\n\nconst merged = [];\nfor (const t of turns) {\n  const textClean = deStutter(String(t.text || ''));\n  if (!textClean) continue;\n\n  const last = merged[merged.length - 1];\n  const sameRole = last && last.role === t.role;\n  const closeInTime = sameRole && (Number(t.timestamp) - Number(last.endTs)) <= MAX_GAP_MS;\n\n  if (sameRole && closeInTime) {\n    if (isNearDuplicate(last.text, textClean)) {\n      last.endTs = t.timestamp;\n      continue;\n    }\n    if (textClean.length < MIN_SNIPPET_LEN) {\n      last.text = `${last.text} ${textClean}`.replace(/\\s+/g, ' ').trim();\n      last.endTs = t.timestamp;\n      continue;\n    }\n    last.text = `${last.text} ${textClean}`.replace(/\\s+/g, ' ').trim();\n    last.endTs = t.timestamp;\n  } else {\n    merged.push({\n      role: t.role,\n      text: textClean,\n      startTs: t.timestamp,\n      endTs: t.timestamp,\n    });\n  }\n}\n\nfor (const m of merged) {\n  m.text = m.text\n    .replace(/\\s+([,.;:!?])/g, '$1')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst lines = merged.map(m => `${roleLabel(m.role)}: ${m.text} — ${toISO(m.endTs)}`);\nconst transcript_string = lines.join('\\n');\n\nreturn [{\n  json: {\n    transcript_string,\n    merged_turns: merged\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "fb43e7d4-e9e4-4956-8a73-dcaa3ace4100",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3a784887-78af-48cc-b03b-efd74231e5e8",
+              "name": "transcript_string",
+              "value": "={{ $json.transcript_string }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        0
+      ],
+      "id": "288adaf0-a17f-4371-b964-662030bc6a1b",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "inputText": "=You are a lead-stage classifier for an AI Voice Agent product. You will receive only a call transcript (role: text — timestamp).\nThink carefully and in detail internally before deciding—trace the user’s intent, specificity of questions, business details, real phone needs, urgency, and decision signals. Do not reveal your reasoning in the final answer.\n\nDecision framework (apply silently):\n\nInterest: Are the questions concrete (pricing, integrations, SLAs, volumes) vs. vague curiosity?\n\nDetail: Does the prospect share business context (industry, team size, call volume, channels, constraints)?\n\nBusiness Need (Voice Fit): Is voice critical (bookings/appointments, inbound support, after-hours coverage, missed calls, handoffs to humans)?\n\nUrgency/Authority: Budget/timeline/decision-maker signals; commitment to pilot or go-live.\n\nRecency & Consistency: Prefer the most recent clear signal; resolve contradictions conservatively.\n\nClassification (choose ONE label):\n\n“solo un preguntón” → vague curiosity, little/no context, no clear need or urgency.\n\n“usuario interesado” → concrete questions and some business detail, but no clear commitment/urgency.\n\n“ready to buy” → clear voice need and (high interest or urgency/authority); asks for concrete next steps/pilot.\n\nOutput rule: Return only one of these exact labels:\njust_asking | user_interested | ready_to_purchase\nDo not output any explanation or reasoning.\n\n## Transcript \n{{ $json.transcript_string }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "user_interested",
+              "description": "This is the user who is interested in the services"
+            },
+            {
+              "category": "just_asking",
+              "description": "It is the user who is a questioner and is not interested."
+            },
+            {
+              "category": "ready_to_purchase",
+              "description": "The user who is super interesting in the product and wanna purchease"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batchSize": 5
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        -320
+      ],
+      "id": "ecce6eac-4cb1-4a37-941d-5e8de47c937f",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "gpt-5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        416,
+        -80
+      ],
+      "id": "59aa4269-61be-4b96-ab31-d735f2dfe179",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "hfk2wbyFY0EwpX8l",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.transcript_string }}"
+            },
+            {
+              "content": "=You are an evaluator of an AI Voice Agent assistant. You will receive only a call transcript (role: text — timestamp).\nThink carefully and in detail internally before answering—do not reveal your chain of thought.\n\nEvaluation goals (apply silently):\n\nProduct information handling: Did the assistant understand and correctly use product details?\n\nProduct communication quality: Was the explanation clear, concise, and tailored (no jargon drift, correct scope)?\n\nAnswer accuracy & completeness: Did responses address the user’s questions directly and correctly, with appropriate follow-ups?\n\nUser satisfaction signals: Did the user appear satisfied (acceptance, positive language, agreeing to next steps) vs. confused/frustrated?\n\nHeuristics (apply silently):\n\nPrefer recent turns when signals conflict.\n\nDiscount ASR/TTS artifacts, stutters, or duplicates.\n\nPenalize confident but incorrect statements, evasiveness, or missing obvious clarifications.\n\nReward proactive clarification, summarizing, and next-step guidance.\n\nOutput rule: Return exactly one line:\n\n{\nFeedback: <concise evaluation (1–3 sentences)>,\nstatus: 'error' | 'warning' | 'success'\n}\n\nIf the transcript lacks sufficient evidence to evaluate, return: Feedback: No Feedback\n\nDo not include scores, labels, or reasoning—only the feedback line.",
+              "role": "system"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        432,
+        192
+      ],
+      "id": "90d4a19c-8a8f-4959-aebd-9a5a601b4c37",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "hfk2wbyFY0EwpX8l",
+          "name": "OpenAi account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "cover.app.n8n.cloud",
+            "user-agent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+            "content-length": "17517",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "185.197.248.181",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "AR",
+            "cf-ray": "9798512222dd90c1-EZE",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "x-forwarded-for": "185.197.248.181, 198.41.230.14",
+            "x-forwarded-host": "cover.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-1-8749c5b8f-9jfvg",
+            "x-is-trusted": "yes",
+            "x-real-ip": "185.197.248.181"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "endedAt": 1756934696139,
+            "transcript": [
+              {
+                "role": "assistant",
+                "text": "Agent Converge",
+                "timestamp": 1756934491477
+              },
+              {
+                "role": "assistant",
+                "text": "Agent Kovario, this is Amber.",
+                "timestamp": 1756934492499
+              },
+              {
+                "role": "assistant",
+                "text": "Agent Cavario, this is Amber, which",
+                "timestamp": 1756934493486
+              },
+              {
+                "role": "assistant",
+                "text": "like a 30",
+                "timestamp": 1756934493821
+              },
+              {
+                "role": "assistant",
+                "text": "like a 30 second overview",
+                "timestamp": 1756934494824
+              },
+              {
+                "role": "assistant",
+                "text": "like a 30 second overview, or",
+                "timestamp": 1756934495229
+              },
+              {
+                "role": "assistant",
+                "text": "you like a 30 second overview, or should I start with",
+                "timestamp": 1756934496253
+              },
+              {
+                "role": "assistant",
+                "text": "you like a 30 second overview, or should I start with your top question?",
+                "timestamp": 1756934497253
+              },
+              {
+                "role": "user",
+                "text": "I think",
+                "timestamp": 1756934499796
+              },
+              {
+                "role": "user",
+                "text": "I think you",
+                "timestamp": 1756934500765
+              },
+              {
+                "role": "user",
+                "text": "give me",
+                "timestamp": 1756934501884
+              },
+              {
+                "role": "user",
+                "text": "give me give me give me a deal",
+                "timestamp": 1756934503168
+              },
+              {
+                "role": "user",
+                "text": "give me give me give me a demo overview. Would it be great?",
+                "timestamp": 1756934504164
+              },
+              {
+                "role": "user",
+                "text": "give me give me give me the overview. Would it be great?",
+                "timestamp": 1756934504836
+              },
+              {
+                "role": "assistant",
+                "text": "Of course.",
+                "timestamp": 1756934506763
+              },
+              {
+                "role": "assistant",
+                "text": "Of course. Agent Cabrillo is",
+                "timestamp": 1756934507779
+              },
+              {
+                "role": "assistant",
+                "text": "Of course. Agent Coverillo is a voice agent that",
+                "timestamp": 1756934508780
+              },
+              {
+                "role": "assistant",
+                "text": "answers calls on",
+                "timestamp": 1756934509770
+              },
+              {
+                "role": "assistant",
+                "text": "answers calls on your number,",
+                "timestamp": 1756934510746
+              },
+              {
+                "role": "assistant",
+                "text": "answers calls on your number, scales to handle multiple",
+                "timestamp": 1756934511747
+              },
+              {
+                "role": "assistant",
+                "text": "answers calls on your number, scales to handle multiple calls at once,",
+                "timestamp": 1756934512751
+              },
+              {
+                "role": "assistant",
+                "text": "answers calls on your number, scales to handle",
+                "timestamp": 1756934513754
+              },
+              {
+                "role": "assistant",
+                "text": "by",
+                "timestamp": 1756934513779
+              },
+              {
+                "role": "assistant",
+                "text": "multiple calls at once, runs outbound campaigns,",
+                "timestamp": 1756934514748
+              },
+              {
+                "role": "assistant",
+                "text": "multiple calls at once, runs outbound campaigns, and captures structured",
+                "timestamp": 1756934515752
+              },
+              {
+                "role": "assistant",
+                "text": "multiple calls at once, runs outbound campaigns, and captures structured data from",
+                "timestamp": 1756934516782
+              },
+              {
+                "role": "assistant",
+                "text": "multiple calls at once, runs outbound campaigns, and captures structured data from conversations.",
+                "timestamp": 1756934517573
+              },
+              {
+                "role": "assistant",
+                "text": "multiple calls at once, runs outbound campaigns, and and captures structured data from conversations. It can translate",
+                "timestamp": 1756934518591
+              },
+              {
+                "role": "assistant",
+                "text": "multiple calls at once, runs outbound campaigns, and and captures structured data from conversations. It can translate scripts,",
+                "timestamp": 1756934519590
+              },
+              {
+                "role": "assistant",
+                "text": "qualify leads,",
+                "timestamp": 1756934520307
+              },
+              {
+                "role": "assistant",
+                "text": "qualify leads, schedule appointment",
+                "timestamp": 1756934521708
+              },
+              {
+                "role": "assistant",
+                "text": "qualify leads, schedule appointments and",
+                "timestamp": 1756934522708
+              },
+              {
+                "role": "assistant",
+                "text": "qualify leads, schedule appointments, and sync results to your c",
+                "timestamp": 1756934523740
+              },
+              {
+                "role": "assistant",
+                "text": "qualify leads, schedule appointments, and sync results",
+                "timestamp": 1756934524315
+              },
+              {
+                "role": "assistant",
+                "text": "to your CRM",
+                "timestamp": 1756934524339
+              },
+              {
+                "role": "assistant",
+                "text": "to your CRM.",
+                "timestamp": 1756934525024
+              },
+              {
+                "role": "assistant",
+                "text": "to your CRM. You also get a dash",
+                "timestamp": 1756934526023
+              },
+              {
+                "role": "assistant",
+                "text": "to your CRM. You also get a dashboard with a call",
+                "timestamp": 1756934527019
+              },
+              {
+                "role": "assistant",
+                "text": "to your CRM. You also get a dashboard with call metrics",
+                "timestamp": 1756934528002
+              },
+              {
+                "role": "assistant",
+                "text": "transcripts, and",
+                "timestamp": 1756934528683
+              },
+              {
+                "role": "assistant",
+                "text": "transcripts, and lead status. Does that",
+                "timestamp": 1756934529691
+              },
+              {
+                "role": "assistant",
+                "text": "transcripts, and lead status. Does that make sense so far?",
+                "timestamp": 1756934530995
+              },
+              {
+                "role": "user",
+                "text": "How much?",
+                "timestamp": 1756934533574
+              },
+              {
+                "role": "assistant",
+                "text": "Our price",
+                "timestamp": 1756934534970
+              },
+              {
+                "role": "assistant",
+                "text": "Our pricing include",
+                "timestamp": 1756934535929
+              },
+              {
+                "role": "user",
+                "text": "No.",
+                "timestamp": 1756934536925
+              },
+              {
+                "role": "user",
+                "text": "no. No. No.",
+                "timestamp": 1756934537970
+              },
+              {
+                "role": "user",
+                "text": "No. No. No. But this info may",
+                "timestamp": 1756934539264
+              },
+              {
+                "role": "user",
+                "text": "How much",
+                "timestamp": 1756934540186
+              },
+              {
+                "role": "user",
+                "text": "uh, is",
+                "timestamp": 1756934543773
+              },
+              {
+                "role": "user",
+                "text": "uh, is that?",
+                "timestamp": 1756934544432
+              },
+              {
+                "role": "user",
+                "text": "Because I would like",
+                "timestamp": 1756934545660
+              },
+              {
+                "role": "user",
+                "text": "Because I would like to know I don't I",
+                "timestamp": 1756934546569
+              },
+              {
+                "role": "user",
+                "text": "Because I would like to know I don't I don't interested on",
+                "timestamp": 1756934547584
+              },
+              {
+                "role": "user",
+                "text": "Because I would like to know I don't I don't interested on set up both stock.",
+                "timestamp": 1756934548575
+              },
+              {
+                "role": "user",
+                "text": "I just want",
+                "timestamp": 1756934549992
+              },
+              {
+                "role": "user",
+                "text": "I just want I",
+                "timestamp": 1756934550476
+              },
+              {
+                "role": "user",
+                "text": "I just want are interested",
+                "timestamp": 1756934551458
+              },
+              {
+                "role": "user",
+                "text": "I just want are interested on",
+                "timestamp": 1756934552739
+              },
+              {
+                "role": "user",
+                "text": "rate",
+                "timestamp": 1756934553641
+              },
+              {
+                "role": "user",
+                "text": "rate data in",
+                "timestamp": 1756934554649
+              },
+              {
+                "role": "user",
+                "text": "rate data important for my",
+                "timestamp": 1756934555643
+              },
+              {
+                "role": "user",
+                "text": "business",
+                "timestamp": 1756934557259
+              },
+              {
+                "role": "user",
+                "text": "business. No. Need",
+                "timestamp": 1756934558275
+              },
+              {
+                "role": "user",
+                "text": "business, not anything related with",
+                "timestamp": 1756934559285
+              },
+              {
+                "role": "user",
+                "text": "business, not anything related with Chrome, the tools,",
+                "timestamp": 1756934560274
+              },
+              {
+                "role": "user",
+                "text": "business. No. Anything related with Chrome, the tools. I don't want",
+                "timestamp": 1756934561295
+              },
+              {
+                "role": "user",
+                "text": "something that work.",
+                "timestamp": 1756934561803
+              },
+              {
+                "role": "user",
+                "text": "something that work, and that's it.",
+                "timestamp": 1756934562815
+              },
+              {
+                "role": "user",
+                "text": "something that work, and that's it. Is this",
+                "timestamp": 1756934564382
+              },
+              {
+                "role": "user",
+                "text": "the current",
+                "timestamp": 1756934565307
+              },
+              {
+                "role": "user",
+                "text": "the current play for that?",
+                "timestamp": 1756934566382
+              },
+              {
+                "role": "assistant",
+                "text": "I understand. Our pricing",
+                "timestamp": 1756934568599
+              },
+              {
+                "role": "assistant",
+                "text": "I understand. Our pricing model includes a set",
+                "timestamp": 1756934569604
+              },
+              {
+                "role": "assistant",
+                "text": "I understand. Our pricing model includes a setup",
+                "timestamp": 1756934570624
+              },
+              {
+                "role": "assistant",
+                "text": "fee based on your",
+                "timestamp": 1756934570745
+              },
+              {
+                "role": "assistant",
+                "text": "fee based on your needs and a monthly",
+                "timestamp": 1756934571750
+              },
+              {
+                "role": "assistant",
+                "text": "fee based on your needs and a monthly membership with a package of",
+                "timestamp": 1756934572771
+              },
+              {
+                "role": "assistant",
+                "text": "fee based on your needs and a monthly membership with a package of minutes.",
+                "timestamp": 1756934573653
+              },
+              {
+                "role": "assistant",
+                "text": "fee based on your needs and a monthly membership with a package of minutes. If you exceed that pack,",
+                "timestamp": 1756934574667
+              },
+              {
+                "role": "assistant",
+                "text": "If you exceed that pack,",
+                "timestamp": 1756934574801
+              },
+              {
+                "role": "assistant",
+                "text": "If you exceed that package, there's a per",
+                "timestamp": 1756934575757
+              },
+              {
+                "role": "assistant",
+                "text": "If you exceed that package, there's a per minute overage. We can",
+                "timestamp": 1756934576759
+              },
+              {
+                "role": "assistant",
+                "text": "If you exceed that package, there's a per minute overage. We can scale the plan as",
+                "timestamp": 1756934577759
+              },
+              {
+                "role": "assistant",
+                "text": "If you exceed that package, there's a per minute overage. We can scale the plan as you grow.",
+                "timestamp": 1756934578483
+              },
+              {
+                "role": "assistant",
+                "text": "Does that help?",
+                "timestamp": 1756934579532
+              },
+              {
+                "role": "user",
+                "text": "Yeah. Yeah.",
+                "timestamp": 1756934581506
+              },
+              {
+                "role": "user",
+                "text": "Yeah. Yeah. Yeah. But",
+                "timestamp": 1756934582409
+              },
+              {
+                "role": "user",
+                "text": "Yeah. Yeah. Yeah. But my question is,",
+                "timestamp": 1756934583349
+              },
+              {
+                "role": "user",
+                "text": "my question is,",
+                "timestamp": 1756934583717
+              },
+              {
+                "role": "user",
+                "text": "my question is, who",
+                "timestamp": 1756934584487
+              },
+              {
+                "role": "user",
+                "text": "who set up",
+                "timestamp": 1756934586759
+              },
+              {
+                "role": "user",
+                "text": "the agents?",
+                "timestamp": 1756934587671
+              },
+              {
+                "role": "user",
+                "text": "the agents? Me?",
+                "timestamp": 1756934588528
+              },
+              {
+                "role": "user",
+                "text": "Or the",
+                "timestamp": 1756934589499
+              },
+              {
+                "role": "assistant",
+                "text": "Alright.",
+                "timestamp": 1756934589582
+              },
+              {
+                "role": "user",
+                "text": "Or the company?",
+                "timestamp": 1756934590245
+              },
+              {
+                "role": "assistant",
+                "text": "The company sets up",
+                "timestamp": 1756934591937
+              },
+              {
+                "role": "assistant",
+                "text": "The company sets up the agents for you.",
+                "timestamp": 1756934592941
+              },
+              {
+                "role": "assistant",
+                "text": "The company sets up the agents for you. We handle the configure",
+                "timestamp": 1756934594210
+              },
+              {
+                "role": "assistant",
+                "text": "The company sets up the agents for you. We handle the configuration.",
+                "timestamp": 1756934594942
+              },
+              {
+                "role": "assistant",
+                "text": "Screen",
+                "timestamp": 1756934595467
+              },
+              {
+                "role": "assistant",
+                "text": "Including scripts and integration",
+                "timestamp": 1756934596466
+              },
+              {
+                "role": "assistant",
+                "text": "Including scripts and integrations. Your team",
+                "timestamp": 1756934597484
+              },
+              {
+                "role": "assistant",
+                "text": "Including scripts and integrations. Your team test it during the",
+                "timestamp": 1756934598478
+              },
+              {
+                "role": "assistant",
+                "text": "Including scripts and integrations. Your team test it during the pilot",
+                "timestamp": 1756934599474
+              },
+              {
+                "role": "assistant",
+                "text": "phase, and we make a",
+                "timestamp": 1756934599637
+              },
+              {
+                "role": "assistant",
+                "text": "phase, and we make adjustments before",
+                "timestamp": 1756934600609
+              },
+              {
+                "role": "assistant",
+                "text": "phase, and we make adjustments before full rollout.",
+                "timestamp": 1756934601599
+              },
+              {
+                "role": "assistant",
+                "text": "phase, and we make adjustments before full rollout. Does that clarify?",
+                "timestamp": 1756934602595
+              },
+              {
+                "role": "assistant",
+                "text": "phase and we make adjustments before full rollout. Does that clarify?",
+                "timestamp": 1756934603157
+              },
+              {
+                "role": "user",
+                "text": "Okay. It's private",
+                "timestamp": 1756934605776
+              },
+              {
+                "role": "user",
+                "text": "Okay. It's verified. And what's",
+                "timestamp": 1756934606783
+              },
+              {
+                "role": "user",
+                "text": "Okay. It's verified. And what's happened is",
+                "timestamp": 1756934607786
+              },
+              {
+                "role": "user",
+                "text": "Okay. It's verified. And what's happened if",
+                "timestamp": 1756934608574
+              },
+              {
+                "role": "user",
+                "text": "in the future,",
+                "timestamp": 1756934609508
+              },
+              {
+                "role": "user",
+                "text": "I would like",
+                "timestamp": 1756934611327
+              },
+              {
+                "role": "user",
+                "text": "I would like to",
+                "timestamp": 1756934612302
+              },
+              {
+                "role": "user",
+                "text": "I would like to apply some changes",
+                "timestamp": 1756934613308
+              },
+              {
+                "role": "user",
+                "text": "I would like to apply some changes.",
+                "timestamp": 1756934614059
+              },
+              {
+                "role": "user",
+                "text": "And to be here,",
+                "timestamp": 1756934615024
+              },
+              {
+                "role": "user",
+                "text": "And the behavior of",
+                "timestamp": 1756934616046
+              },
+              {
+                "role": "user",
+                "text": "And the behavior of a new tool",
+                "timestamp": 1756934617033
+              },
+              {
+                "role": "user",
+                "text": "And the behavior of a new tool to my agents.",
+                "timestamp": 1756934618035
+              },
+              {
+                "role": "user",
+                "text": "How is the process",
+                "timestamp": 1756934619062
+              },
+              {
+                "role": "user",
+                "text": "How is the process?",
+                "timestamp": 1756934619691
+              },
+              {
+                "role": "assistant",
+                "text": "If you need",
+                "timestamp": 1756934621216
+              },
+              {
+                "role": "assistant",
+                "text": "If you need changes in the future,",
+                "timestamp": 1756934622220
+              },
+              {
+                "role": "assistant",
+                "text": "If you need changes in the future, you can request",
+                "timestamp": 1756934623250
+              },
+              {
+                "role": "assistant",
+                "text": "updates to scripts",
+                "timestamp": 1756934623974
+              },
+              {
+                "role": "assistant",
+                "text": "updates to scripts or configuration",
+                "timestamp": 1756934624969
+              },
+              {
+                "role": "assistant",
+                "text": "updates to scripts or configurations. Our team",
+                "timestamp": 1756934625968
+              },
+              {
+                "role": "assistant",
+                "text": "updates to scripts or configurations. Our team will implement and test",
+                "timestamp": 1756934626971
+              },
+              {
+                "role": "assistant",
+                "text": "updates to scripts or configurations. Our team will implement and test them with you.",
+                "timestamp": 1756934627974
+              },
+              {
+                "role": "assistant",
+                "text": "This ensures",
+                "timestamp": 1756934628608
+              },
+              {
+                "role": "assistant",
+                "text": "This ensures the system",
+                "timestamp": 1756934629618
+              },
+              {
+                "role": "assistant",
+                "text": "This ensures the system adapts to your evolving",
+                "timestamp": 1756934630614
+              },
+              {
+                "role": "assistant",
+                "text": "This ensures the system adapts to your evolving needs.",
+                "timestamp": 1756934631591
+              },
+              {
+                "role": "assistant",
+                "text": "This ensures the system adapts to your evolving needs. Does that work for you?",
+                "timestamp": 1756934632588
+              },
+              {
+                "role": "assistant",
+                "text": "Does that work for you?",
+                "timestamp": 1756934632668
+              },
+              {
+                "role": "user",
+                "text": "Yeah. That's worth",
+                "timestamp": 1756934635383
+              },
+              {
+                "role": "user",
+                "text": "Yeah. That's work for me, but I",
+                "timestamp": 1756934636359
+              },
+              {
+                "role": "user",
+                "text": "Yeah. That's work for me, but I how can I know",
+                "timestamp": 1756934637425
+              },
+              {
+                "role": "user",
+                "text": "Yeah. That's work for me, but how how can I know?",
+                "timestamp": 1756934637938
+              },
+              {
+                "role": "user",
+                "text": "If those change",
+                "timestamp": 1756934638853
+              },
+              {
+                "role": "user",
+                "text": "If those changes was",
+                "timestamp": 1756934639850
+              },
+              {
+                "role": "user",
+                "text": "If those changes was the expected",
+                "timestamp": 1756934640876
+              },
+              {
+                "role": "user",
+                "text": "If those changes was the expected?",
+                "timestamp": 1756934641187
+              },
+              {
+                "role": "assistant",
+                "text": "You will have access",
+                "timestamp": 1756934643017
+              },
+              {
+                "role": "assistant",
+                "text": "You will have access to a dashboard",
+                "timestamp": 1756934644030
+              },
+              {
+                "role": "assistant",
+                "text": "You will have access to a dash",
+                "timestamp": 1756934644060
+              },
+              {
+                "role": "assistant",
+                "text": "board. It provides",
+                "timestamp": 1756934644667
+              },
+              {
+                "role": "assistant",
+                "text": "board. It provides call metrics,",
+                "timestamp": 1756934645668
+              },
+              {
+                "role": "assistant",
+                "text": "board. It provides call metrics, transcripts and",
+                "timestamp": 1756934646666
+              },
+              {
+                "role": "assistant",
+                "text": "board. It provides call metrics, transcripts and team types.",
+                "timestamp": 1756934647668
+              },
+              {
+                "role": "assistant",
+                "text": "And lead progression.",
+                "timestamp": 1756934648722
+              },
+              {
+                "role": "assistant",
+                "text": "And lead progression. You can review the chain",
+                "timestamp": 1756934650772
+              },
+              {
+                "role": "assistant",
+                "text": "And lead progression. You can review the changes and their impact",
+                "timestamp": 1756934651775
+              },
+              {
+                "role": "assistant",
+                "text": "And lead progression. You can review the changes and their impact,",
+                "timestamp": 1756934652071
+              },
+              {
+                "role": "assistant",
+                "text": "We also support",
+                "timestamp": 1756934652908
+              },
+              {
+                "role": "assistant",
+                "text": "We also support you during the testing",
+                "timestamp": 1756934653912
+              },
+              {
+                "role": "assistant",
+                "text": "We also support you during the testing phase to ensure",
+                "timestamp": 1756934654936
+              },
+              {
+                "role": "assistant",
+                "text": "We also support you during the testing phase to ensure everything meets your",
+                "timestamp": 1756934655919
+              },
+              {
+                "role": "assistant",
+                "text": "We also support you during the testing phase to ensure everything meets your x",
+                "timestamp": 1756934656916
+              },
+              {
+                "role": "assistant",
+                "text": "expectations. The",
+                "timestamp": 1756934657244
+              },
+              {
+                "role": "assistant",
+                "text": "expectations. Does that answer your question?",
+                "timestamp": 1756934658246
+              },
+              {
+                "role": "user",
+                "text": "Yeah.",
+                "timestamp": 1756934661252
+              },
+              {
+                "role": "user",
+                "text": "Yeah. It is.",
+                "timestamp": 1756934663292
+              },
+              {
+                "role": "assistant",
+                "text": "Great.",
+                "timestamp": 1756934664636
+              },
+              {
+                "role": "assistant",
+                "text": "Great. The next",
+                "timestamp": 1756934665636
+              },
+              {
+                "role": "assistant",
+                "text": "Great. The next step is a short",
+                "timestamp": 1756934666645
+              },
+              {
+                "role": "assistant",
+                "text": "Great. The next step is a short call with a team to",
+                "timestamp": 1756934667668
+              },
+              {
+                "role": "assistant",
+                "text": "call with a team to size your setup",
+                "timestamp": 1756934668701
+              },
+              {
+                "role": "assistant",
+                "text": "call with the team to size your setup and mine it package.",
+                "timestamp": 1756934669692
+              },
+              {
+                "role": "assistant",
+                "text": "call with the team to size your setup and my new package. Would you like me to",
+                "timestamp": 1756934670676
+              },
+              {
+                "role": "assistant",
+                "text": "call with the team to size your setup and mine package.",
+                "timestamp": 1756934671704
+              },
+              {
+                "role": "assistant",
+                "text": "Would you like me to repeat the office",
+                "timestamp": 1756934671751
+              },
+              {
+                "role": "assistant",
+                "text": "Would you like me to repeat the office contact line so you can",
+                "timestamp": 1756934672685
+              },
+              {
+                "role": "assistant",
+                "text": "Would you like me to repeat the office contact line so you can reach them?",
+                "timestamp": 1756934673701
+              },
+              {
+                "role": "assistant",
+                "text": "Please contact our",
+                "timestamp": 1756934678705
+              },
+              {
+                "role": "assistant",
+                "text": "Please contact our office at 0",
+                "timestamp": 1756934679679
+              },
+              {
+                "role": "assistant",
+                "text": "Please contact our office at 0 1 1",
+                "timestamp": 1756934680843
+              },
+              {
+                "role": "assistant",
+                "text": "5 5 5",
+                "timestamp": 1756934681853
+              },
+              {
+                "role": "assistant",
+                "text": "5 5 5 0 1",
+                "timestamp": 1756934682871
+              },
+              {
+                "role": "assistant",
+                "text": "5 5 5 0 1 0 1. They'll",
+                "timestamp": 1756934683877
+              },
+              {
+                "role": "assistant",
+                "text": "5 5 5 0 1 0 1. They'll assist you with the next",
+                "timestamp": 1756934684878
+              },
+              {
+                "role": "assistant",
+                "text": "5 5 5 0 1 0 1. They'll assist you with the next steps.",
+                "timestamp": 1756934685538
+              },
+              {
+                "role": "assistant",
+                "text": "Thank you for your",
+                "timestamp": 1756934686392
+              },
+              {
+                "role": "assistant",
+                "text": "Thank you for your time.",
+                "timestamp": 1756934687492
+              },
+              {
+                "role": "user",
+                "text": "Thank you so much.",
+                "timestamp": 1756934689303
+              },
+              {
+                "role": "assistant",
+                "text": "You're well",
+                "timestamp": 1756934690468
+              },
+              {
+                "role": "assistant",
+                "text": "You're welcome. Have a great day.",
+                "timestamp": 1756934691476
+              }
+            ]
+          },
+          "webhookUrl": "https://cover.app.n8n.cloud/webhook/a346aa8d-a14e-4be6-a9eb-85d0f2fa7439",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cde745bc-70d9-419b-91c2-b549437c74aa",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f8eaf8bef1c6467fb3687216a5c1296ee5e886fb01cb197574b7f8e91332a8d8"
+  },
+  "id": "w4caj7wJW4V79xj8",
+  "tags": []
+}
