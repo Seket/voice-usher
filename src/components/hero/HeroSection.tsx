@@ -27,7 +27,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onStartVoice, className }) =>
           {/* Hero Badge */}
           <div className="inline-flex items-center space-x-2 bg-primary/20 border border-primary/30 rounded-full px-6 py-2 text-sm font-medium">
             <Zap className="w-4 h-4 text-primary" />
-            <span>AI Voice Assistant</span>
+            <span>UIX Voice Assistant</span>
           </div>
 
           {/* Main Heading */}
@@ -38,8 +38,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onStartVoice, className }) =>
               <span className="text-foreground">to the Future</span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Experience natural conversations with our AI-powered voice assistant. 
-              Simply speak and get intelligent responses instantly.
+              Ask your questions and discover how UIX Network can transform your marketing strategy—start the conversation with a representative today.
             </p>
           </div>
 
